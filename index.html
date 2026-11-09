@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#111111">
+<link rel="manifest" href="manifest.json">
+<title>Saludos</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #bg { position: absolute; inset: 0; z-index: 0; background: linear-gradient(rgba(0,0,0,.42), rgba(0,0,0,.42)), url(fondo.jpg) center / cover no-repeat #111; }
+  #app.idle video, #app.done video { visibility: hidden; }
+  video { z-index: 1; position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #000; }
+  .overlay { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; padding: 24px; }
+  #count { font-size: 22vmin; font-weight: 700; text-shadow: 0 2px 12px rgba(0,0,0,.8); line-height: 1; }
+  #msg, #msg3 { font-size: 6vmin; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+  button { font: inherit; border: 0; border-radius: 999px; cursor: pointer; }
+  #start { background: #e53935; color: #fff; font-size: 8vmin; padding: 3vmin 12vmin; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+  #stop { background: rgba(255,255,255,.9); color: #111; font-size: 4.5vmin; padding: 2vmin 8vmin; }
+  #rec { display: none; position: absolute; top: 16px; left: 16px; z-index: 3; align-items: center; gap: 8px; font-size: 4vmin; text-shadow: 0 1px 6px #000; }
+  #rec i { width: 14px; height: 14px; border-radius: 50%; background: #e53935; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  #gear { position: absolute; top: 8px; right: 8px; z-index: 5; width: 48px; height: 48px; background: transparent; color: rgba(255,255,255,.25); font-size: 26px; }
+  #admin { display: none; position: absolute; inset: 0; z-index: 10; background: rgba(0,0,0,.92); align-items: center; justify-content: center; }
+  #admin .box { background: #222; border-radius: 16px; padding: 24px; width: min(92vw, 420px); display: flex; flex-direction: column; gap: 14px; }
+  #admin h2 { margin: 0; font-size: 20px; }
+  #admin label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #ccc; }
+  #admin input[type=number], #admin input[type=password] { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #555; background: #111; color: #fff; font-size: 18px; }
+  #admin .row { display: flex; gap: 10px; }
+  #admin .row button { flex: 1; padding: 14px; font-size: 16px; border-radius: 12px; background: #444; color: #fff; }
+  #admin .row button.ok { background: #1e88e5; }
+  #err { color: #ff8a80; font-size: 14px; min-height: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app" class="idle">
+  <div id="bg"></div>
+  <video id="cam" autoplay muted playsinline></video>
+  <div id="rec"><i></i><span>REC</span></div>
+  <button id="gear" aria-label="Administrador">⚙</button>
+
+  <div class="overlay" id="idle">
+    <div id="msg">Dejanos tu saludo</div>
+    <button id="start">INICIAR</button>
+  </div>
+
+  <div class="overlay hidden" id="running">
+    <div id="count"></div>
+    <div id="msg2"></div>
+    <button id="stop" class="hidden">Terminar</button>
+  </div>
+
+  <div class="overlay hidden" id="done">
+    <div id="msg3">¡Gracias! Tu saludo fue guardado.</div>
+  </div>
+
+  <div id="admin">
+    <div class="box">
+      <h2>Administrador</h2>
+      <div id="login">
+        <label>PIN
+          <input type="password" id="pin" inputmode="numeric" autocomplete="off">
+        </label>
+        <div id="err"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="loginCancel">Cancelar</button>
+          <button id="loginOk" class="ok">Entrar</button>
+        </div>
+      </div>
+      <div id="panel" class="hidden" style="display:none;flex-direction:column;gap:14px">
+        <label>Duración de la grabación (segundos)
+          <input type="number" id="dur" min="5" max="600">
+        </label>
+        <label>Cuenta previa antes de grabar (segundos, 0 = sin cuenta)
+          <input type="number" id="pre" min="0" max="10">
+        </label>
+        <label>Nuevo PIN (dejar vacío para no cambiarlo)
+          <input type="password" id="newpin" inputmode="numeric" autocomplete="off">
+        </label>
+        <label>Formato de video
+          <select id="fmt" style="font:inherit;padding:12px;border-radius:10px;border:1px solid #555;background:#111;color:#fff;font-size:18px">
+            <option value="auto">Automático (MP4 si es posible)</option>
+            <option value="webm">WebM (VP8)</option>
+          </select>
+        </label>
+        <label>Videos grabados: <b id="counter">0</b></label>
+        <div class="row">
+          <button id="resetCounter">Reiniciar contador</button>
+        </div>
+        <div class="row">
+          <button id="panelCancel">Cerrar</button>
+          <button id="panelSave" class="ok">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cfg = {
+    get dur() { return parseInt(localStorage.getItem('dur') || '30', 10); },
+    set dur(v) { localStorage.setItem('dur', String(v)); },
+    get pre() { return parseInt(localStorage.getItem('pre') || '3', 10); },
+    set pre(v) { localStorage.setItem('pre', String(v)); },
+    get pin() { return localStorage.getItem('pin') || '1234'; },
+    set pin(v) { localStorage.setItem('pin', String(v)); },
+    get n() { return parseInt(localStorage.getItem('n') || '0', 10); },
+    set n(v) { localStorage.setItem('n', String(v)); },
+    get fmt() { return localStorage.getItem('fmt') || 'auto'; },
+    set fmt(v) { localStorage.setItem('fmt', String(v)); }
+  };
+
+  let stream = null, recorder = null, chunks = [], busy = false, timer = null, wake = null;
+
+  const show = id => {
+    ['idle', 'running', 'done'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+    $('app').className = id;
+  };
+
+  async function openCamera() {
+    if (stream && stream.getTracks().every(t => t.readyState === 'live')) return true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, min: 24 } },
+        audio: true
+      });
+      $('cam').srcObject = stream;
+      return true;
+    } catch (e) {
+      $('msg').textContent = 'No se pudo acceder a la cámara/micrófono. Revisá los permisos.';
+      return false;
+    }
+  }
+
+  async function keepAwake() {
+    try { if ('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { keepAwake(); openCamera(); }
+  });
+
+  function pickMime() {
+    const mp4 = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+    const webm = ['video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+    const order = cfg.fmt === 'webm' ? webm.concat(mp4) : mp4.concat(webm);
+    return order.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+  }
+
+  function pad(n, l) { return String(n).padStart(l, '0'); }
+  function stamp() {
+    const d = new Date();
+    return d.getFullYear() + pad(d.getMonth() + 1, 2) + pad(d.getDate(), 2) + '_' + pad(d.getHours(), 2) + pad(d.getMinutes(), 2) + pad(d.getSeconds(), 2);
+  }
+
+  function saveBlob(blob, ext) {
+    cfg.n = cfg.n + 1;
+    const name = 'saludo_' + pad(cfg.n, 3) + '_' + stamp() + '.' + ext;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function start() {
+    if (busy) return;
+    busy = true;
+    if (!(await openCamera())) { busy = false; return; }
+    keepAwake();
+    show('running');
+    $('stop').classList.add('hidden');
+    $('msg2').textContent = '';
+
+    // cuenta previa
+    for (let i = cfg.pre; i > 0; i--) {
+      $('count').textContent = i;
+      $('msg2').textContent = 'Prepárate…';
+      await sleep(1000);
+    }
+
+    // grabación
+    const mime = pickMime();
+    chunks = [];
+    try {
+      const opts = { videoBitsPerSecond: 2500000, audioBitsPerSecond: 128000 };
+      if (mime) opts.mimeType = mime;
+      recorder = new MediaRecorder(stream, opts);
+    } catch (e) {
+      busy = false; show('idle'); $('msg').textContent = 'Este navegador no puede grabar video.'; return;
+    }
+    recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      clearInterval(timer);
+      $('rec').style.display = 'none';
+      const type = recorder.mimeType || mime || 'video/webm';
+      const blob = new Blob(chunks, { type });
+      saveBlob(blob, type.includes('mp4') ? 'mp4' : 'webm');
+      show('done');
+      setTimeout(() => { busy = false; $('msg').textContent = 'Dejanos tu saludo'; show('idle'); }, 3500);
+    };
+    recorder.start(1000);
+    $('rec').style.display = 'flex';
+    $('msg2').textContent = '¡Grabando!';
+    $('stop').classList.remove('hidden');
+
+    let left = cfg.dur;
+    $('count').textContent = left;
+    timer = setInterval(() => {
+      left--;
+      $('count').textContent = Math.max(left, 0);
+      if (left <= 0) stop();
+    }, 1000);
+  }
+
+  function stop() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  $('start').addEventListener('click', start);
+  $('stop').addEventListener('click', stop);
+
+  // ---- Administrador ----
+  const showAdmin = v => { $('admin').style.display = v ? 'flex' : 'none'; };
+  $('gear').addEventListener('click', () => {
+    if (busy) return;
+    $('pin').value = ''; $('err').textContent = '';
+    $('login').style.display = 'block';
+    $('panel').style.display = 'none';
+    showAdmin(true);
+  });
+  $('loginCancel').addEventListener('click', () => showAdmin(false));
+  $('loginOk').addEventListener('click', () => {
+    if ($('pin').value === cfg.pin) {
+      $('login').style.display = 'none';
+      $('panel').style.display = 'flex';
+      $('dur').value = cfg.dur;
+      $('pre').value = cfg.pre;
+      $('newpin').value = '';
+      $('fmt').value = cfg.fmt;
+      $('counter').textContent = cfg.n;
+    } else {
+      $('err').textContent = 'PIN incorrecto';
+    }
+  });
+  $('resetCounter').addEventListener('click', () => { cfg.n = 0; $('counter').textContent = 0; });
+  $('panelCancel').addEventListener('click', () => showAdmin(false));
+  $('panelSave').addEventListener('click', () => {
+    const d = parseInt($('dur').value, 10);
+    const p = parseInt($('pre').value, 10);
+    if (d >= 5 && d <= 600) cfg.dur = d;
+    if (p >= 0 && p <= 10) cfg.pre = p;
+    if ($('newpin').value.trim()) cfg.pin = $('newpin').value.trim();
+    cfg.fmt = $('fmt').value;
+    showAdmin(false);
+  });
+
+  // ---- Inicio y modo sin conexión ----
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  openCamera();
+})();
+</script>
+</body>
+</html>
